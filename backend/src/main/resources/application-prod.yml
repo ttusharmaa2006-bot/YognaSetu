@@ -1,0 +1,24 @@
+server:
+  port: ${PORT:8081}
+
+spring:
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb+srv://User:Mnbvcxz123%40%23@cluster0.4osn4zj.mongodb.net/yognasetu_db?appName=Cluster0}
+
+yognasetu:
+  jwt:
+    secret: ${JWT_SECRET:YognaSetuSecureSuperSecretKeyForSpringSecurityAuthenticationTokenSigning2026!}
+    expirationMs: ${JWT_EXPIRATION_MS:86400000}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: WARN
