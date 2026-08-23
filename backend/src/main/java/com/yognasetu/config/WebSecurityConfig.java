@@ -97,6 +97,8 @@ public class WebSecurityConfig {
                 // Public auth paths
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/auth/login").permitAll()
+                // Render uses this endpoint to verify the service is healthy.
+                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 // Public scheme reading paths
                 .requestMatchers(HttpMethod.GET, "/api/v1/schemes/**").permitAll()
                 // Swagger OpenAPI documentation resources
