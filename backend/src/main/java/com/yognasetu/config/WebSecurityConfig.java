@@ -20,7 +20,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -31,6 +30,9 @@ public class WebSecurityConfig {
 
     @Value("${FRONTEND_URL:}")
     private String frontendUrl;
+
+    @Value("${yognasetu.cors.allowed-origins:}")
+    private String corsAllowedOrigins;
 
     @Autowired
     private CustomUserDetailsService userDetailsService;
@@ -52,7 +54,8 @@ public class WebSecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();
     }
 
@@ -63,26 +66,41 @@ public class WebSecurityConfig {
 
     @Bean
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
-        List<String> allowedOrigins = new ArrayList<>(List.of(
-                "http://localhost:3000",
-                "http://localhost:3001",
-                "http://localhost:5173",
-                "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173"
-        ));
-        Arrays.stream(frontendUrl.split(","))
-                .map(String::trim)
-                .filter(origin -> !origin.isBlank())
-                .forEach(allowedOrigins::add);
-
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
-        configuration.setAllowedOriginPatterns(allowedOrigins);
-        configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(java.util.List.of("*"));
+
+        String origins = !frontendUrl.isBlank()
+                ? frontendUrl
+                : corsAllowedOrigins;
+
+        if (origins == null || origins.trim().isEmpty()) {
+            configuration.setAllowedOriginPatterns(List.of(
+                    "http://localhost:3000",
+                    "http://localhost:3001",
+                    "http://localhost:5173",
+                    "http://127.0.0.1:3000",
+                    "http://127.0.0.1:5173"));
+        } else if ("*".equals(origins.trim())) {
+            configuration.setAllowedOriginPatterns(List.of("*"));
+        } else {
+            List<String> allowedOrigins = Arrays.stream(origins.split(","))
+                    .map(String::trim)
+                    .filter(origin -> !origin.isEmpty())
+                    .toList();
+
+            configuration.setAllowedOriginPatterns(allowedOrigins);
+        }
+
+        configuration.setAllowedMethods(List.of(
+                "GET", "POST", "PUT", "DELETE",
+                "OPTIONS", "PATCH", "HEAD"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setExposedHeaders(List.of(
+                "Authorization", "Content-Disposition"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
         org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
@@ -90,27 +108,59 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(csrf -> csrf.disable())
-            .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                // Public auth paths
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/auth/register").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/auth/login").permitAll()
-                // Render uses this endpoint to verify the service is healthy.
-                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                // Public scheme reading paths
-                .requestMatchers(HttpMethod.GET, "/api/v1/schemes/**").permitAll()
-                // Swagger OpenAPI documentation resources
-                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
-                // Any other actions require authentication
-                .anyRequest().authenticated()
-            );
+                .csrf(csrf -> csrf.disable())
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/",
+                                "/actuator/**",
+                                "/error")
+                        .permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/auth/register",
+                                "/api/auth/register")
+                        .permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/auth/login",
+                                "/api/auth/login")
+                        .permitAll()
+
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/health/**")
+                        .permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/schemes",
+                                "/api/v1/schemes/**",
+                                "/api/schemes",
+                                "/api/schemes/**")
+                        .permitAll()
+
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/api-docs/**")
+                        .permitAll()
+
+                        .anyRequest().authenticated());
 
         http.authenticationProvider(authenticationProvider());
-        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(
+                authenticationJwtTokenFilter(),
+                UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 }
-

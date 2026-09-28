@@ -22,3 +22,4 @@ public class ApiResponse<T> {
     @Builder.Default
     private Instant timestamp = Instant.now();
 }
+

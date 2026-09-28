@@ -11,8 +11,12 @@ backend/target/
 
 # Environment secret files
 .env
-.env.local
-frontend/.env.local
+.env.*
+*.env
+*.env.local
+backend/.env
+frontend/.env
+!*.env.example
 
 # IDE & OS
 .vscode/
